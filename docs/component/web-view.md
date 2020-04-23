@@ -1,6 +1,6 @@
 #### web-view
 
-`web-view` 是一个 web 浏览器组件，可以用来承载网页的容器，会自动铺满整个页面。
+`web-view` 是一个 web 浏览器组件，可以用来承载网页的容器，会自动铺满整个页面（nvue 使用需要手动指的宽高）。
 
 > 各小程序平台，web-view 加载的 url 需要在后台配置域名白名单，包括内部再次 iframe 内嵌的其他 url 。
 
@@ -9,12 +9,12 @@
 |属性名|类型|说明|平台差异说明|
 |:-|:-|:-|:|
 |src|String|webview 指向网页的链接|&nbsp;|
-|webview-styles|Object|webview 的样式|5+App|
+|webview-styles|Object|webview 的样式|App|
 |@message|EventHandler|网页向应用 `postMessage` 时，会在特定时机（后退、组件销毁、分享）触发并收到消息。|H5 暂不支持|
 
 **src**
 
-|来源|5+App|H5|微信小程序|支付宝小程序|百度小程序|头条小程序|QQ小程序|
+|来源|App|H5|微信小程序|支付宝小程序|百度小程序|字节跳动小程序|QQ小程序|
 |:-|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 |网络|√|√|√|√|√|√|√|
 |本地|√|暂不支持|x|x|x|x|x|
@@ -62,6 +62,8 @@
 - 小程序端 web-view 组件一定有原生导航栏，下面一定是全屏的 web-view 组件，navigationStyle: custom 对 web-view 组件无效。
 - App 端使用 `自定义组件模式` 时，uni.web-view.js 的最低版为 [uni.webview.1.5.2.js](https://js.cdn.aliyun.dcloud.net.cn/dev/uni-app/uni.webview.1.5.2.js)
 - App 平台同时支持网络网页和本地网页，但本地网页及相关资源（js、css等文件）必须放在 `uni-app 项目根目录->hybrid->html` 文件夹下，如下为一个加载本地网页的`uni-app`项目文件目录示例：
+- nvue `web-view` 必须指定样式宽高, @message 暂时写成 @onPostMessage，示例: <web-view @message="onmessage" @onPostMessage="onmessage"></web-view>
+- V3 编译模式，网页向应用 `postMessage` 为实时消息
 
 <pre v-pre="" data-lang="">
 	<code class="lang-" style="padding:0">
@@ -104,8 +106,8 @@
 |uni.reLaunch|[reLaunch](/api/router?id=relaunch)||
 |uni.switchTab|[switchTab](/api/router?id=switchtab)||
 |uni.navigateBack|[navigateBack](/api/router?id=navigateback)||
-|uni.postMessage|向应用发送消息|头条小程序不支持|
-|uni.getEnv|获取当前环境|头条小程序不支持|
+|uni.postMessage|向应用发送消息|字节跳动小程序不支持|
+|uni.getEnv|获取当前环境|字节跳动小程序不支持|
 
 ##### uni.postMessage(OBJECT)
 网页向应用发送消息，在 `<web-view>` 的 `message` 事件回调 `event.detail.data` 中接收消息。
@@ -121,7 +123,7 @@
 
 |属性|类型|说明|
 |:-|:-|:-|
-|plus|Boolean|5+App|
+|plus|Boolean|App|
 |miniprogram|Boolean|微信小程序|
 |smartprogram|Boolean|百度小程序|
 |miniprogram|Boolean|支付宝小程序|
@@ -143,7 +145,7 @@
     // 微信小程序 JS-SDK 如果不需要兼容微信小程序，则无需引用此 JS 文件。
     document.write('<script type="text/javascript" src="https://res.wx.qq.com/open/js/jweixin-1.4.0.js"><\/script>');
   } else if (/toutiaomicroapp/i.test(userAgent)) {
-    // 头条小程序 JS-SDK 如果不需要兼容头条小程序，则无需引用此 JS 文件。
+    // 字节跳动小程序 JS-SDK 如果不需要兼容字节跳动小程序，则无需引用此 JS 文件。
     document.write('<script type="text/javascript" src="https://s3.pstatp.com/toutiao/tmajssdk/jssdk-1.0.1.js"><\/script>');
   } else if (/swan/i.test(userAgent)) {
     // 百度小程序 JS-SDK 如果不需要兼容百度小程序，则无需引用此 JS 文件。
@@ -264,7 +266,7 @@ web-view组件在App和小程序中层级较高，如需要在vue页面中写代
 - App端，web-view加载的html页面可以运行plus的api，但注意如果该页面调用了plus.key的API监听了back按键（或使用mui的封装），会造成back监听冲突。需要该html页面移除对back的监听。或按照上面的示例代码禁止网页使用plus对象
 - `uni.webview.js` 最新版地址：[https://js.cdn.aliyun.dcloud.net.cn/dev/uni-app/uni.webview.1.5.2.js](https://js.cdn.aliyun.dcloud.net.cn/dev/uni-app/uni.webview.1.5.2.js)
 - 小程序平台，个人类型与海外类型的小程序使用 `web-view` 组件，提交审核时注意微信等平台是否允许使用
-- 小程序平台， `src` 指向的链接需登录小程序管理后台配置域名白名单。`5+App`和`H5` 无此限制。
+- 小程序平台， `src` 指向的链接需登录小程序管理后台配置域名白名单。`App`和`H5` 无此限制。
 
 ##### FAQ
 

@@ -89,17 +89,30 @@ const protocols = { // 需要做转换的 API 列表
       if (!fromArgs.header) { // 默认增加 header 参数，方便格式化 content-type
         fromArgs.header = {}
       }
+      const headers = {
+        'content-type': 'application/json'
+      }
+      Object.keys(fromArgs.header).forEach(key => {
+        headers[key.toLocaleLowerCase()] = fromArgs.header[key]
+      })
       return {
         header (header = {}, toArgs) {
-          const headers = {
-            'content-type': 'application/json'
-          }
-          Object.keys(header).forEach(key => {
-            headers[key.toLocaleLowerCase()] = header[key]
-          })
           return {
             name: 'headers',
             value: headers
+          }
+        },
+        data (data) {
+          // 钉钉在content-type为application/json时，不会自动序列化
+          if (my.dd && headers['content-type'].indexOf('application/json') === 0) {
+            return {
+              name: 'data',
+              value: JSON.stringify(data)
+            }
+          }
+          return {
+            name: 'data',
+            value: data
           }
         },
         method: 'method', // TODO 支付宝小程序仅支持 get,post
@@ -199,6 +212,11 @@ const protocols = { // 需要做转换的 API 列表
       apFilePath: 'tempFilePath'
     }
   },
+  getFileInfo: {
+    args: {
+      filePath: 'apFilePath'
+    }
+  },
   chooseVideo: {
     // 支付宝小程序文档中未找到（仅在getSetting处提及），但实际可用
     returnValue: {
@@ -288,21 +306,18 @@ const protocols = { // 需要做转换的 API 列表
   scanCode: {
     name: 'scan',
     args (fromArgs) {
-      if (fromArgs.scanType === 'qrCode') {
-        fromArgs.type = 'qr'
-        return {
-          onlyFromCamera: 'hideAlbum'
+      if (fromArgs.scanType) {
+        switch (fromArgs.scanType[0]) {
+          case 'qrCode':
+            fromArgs.type = 'qr'
+            break
+          case 'barCode':
+            fromArgs.type = 'bar'
+            break
         }
-      } else if (fromArgs.scanType === 'barCode') {
-        fromArgs.type = 'bar'
-        return {
-          onlyFromCamera: 'hideAlbum'
-        }
-      } else {
-        return {
-          scanType: false,
-          onlyFromCamera: 'hideAlbum'
-        }
+      }
+      return {
+        onlyFromCamera: 'hideAlbum'
       }
     },
     returnValue: {
@@ -333,8 +348,16 @@ const protocols = { // 需要做转换的 API 列表
     }
   },
   getUserInfo: {
-    name: 'getAuthUserInfo',
+    name: my.canIUse('getOpenUserInfo') ? 'getOpenUserInfo' : 'getAuthUserInfo',
     returnValue (result) {
+      if (my.canIUse('getOpenUserInfo')) {
+        let response = {}
+        try {
+          response = JSON.parse(result.response).response
+        } catch (e) {}
+        result.nickName = response.nickName
+        result.avatar = response.avatar
+      }
       result.userInfo = {
         nickName: result.nickName,
         avatarUrl: result.avatar
@@ -417,7 +440,7 @@ const protocols = { // 需要做转换的 API 列表
   chooseAddress: {
     name: 'getAddress',
     returnValue (result) {
-      let info = result.result || {}
+      const info = result.result || {}
       result.userName = info.fullname
       result.provinceName = info.prov
       result.cityName = info.city

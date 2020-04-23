@@ -2,7 +2,8 @@
   <uni-video v-on="$listeners">
     <div
       ref="container"
-      class="uni-video-container" />
+      class="uni-video-container"
+    />
     <div class="uni-video-slot">
       <slot />
     </div>
@@ -30,6 +31,7 @@ const events = [
   'ended',
   'timeupdate',
   'fullscreenchange',
+  'fullscreenclick',
   'waiting',
   'error'
 ]
@@ -167,11 +169,18 @@ export default {
       this.video && this.video.setStyles(this.position)
     }, { deep: true })
     this.$watch('hidden', (val) => {
-      this.video && this.video[val ? 'hide' : 'show']()
+      const video = this.video
+      if (video) {
+        video[val ? 'hide' : 'show']()
+        // iOS 隐藏状态设置 setStyles 不生效
+        if (!val) {
+          video.setStyles(this.position)
+        }
+      }
     })
     events.forEach(key => {
-      video.addEventListener(key, (data = {}) => {
-        this.$trigger(key, {}, data)
+      video.addEventListener(key, (e) => {
+        this.$trigger(key, {}, { ...e.detail })
       })
     })
   },

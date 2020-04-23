@@ -2,14 +2,16 @@
   <uni-map v-on="$listeners">
     <div
       ref="container"
-      class="uni-map-container" />
+      class="uni-map-container"
+    />
     <v-uni-cover-image
       v-for="(control, index) in mapControls"
       :key="index"
       :src="control.iconPath"
       :style="control.position"
       auto-size
-      @click="controlclick(control)"/>
+      @click="controlclick(control)"
+    />
     <div class="uni-map-slot">
       <slot />
     </div>
@@ -93,7 +95,7 @@ export default {
     },
     scale: {
       type: [String, Number],
-      default: 1
+      default: 16
     },
     markers: {
       type: Array,
@@ -144,7 +146,7 @@ export default {
     },
     mapControls () {
       const list = this.controls.map((control) => {
-        let position = { position: 'absolute' };
+        const position = { position: 'absolute' };
         ['top', 'left', 'width', 'height'].forEach(key => {
           if (control.position[key]) {
             position[key] = control.position[key] + 'px'
@@ -163,6 +165,9 @@ export default {
     hidden (val) {
       this.map && this.map[val ? 'hide' : 'show']()
     },
+    scale (val) {
+      this.map && this.map.setZoom(parseInt(val))
+    },
     latitude (val) {
       this.map && this.map.setStyles({
         center: new plus.maps.Point(this.longitude, this.latitude)
@@ -174,7 +179,7 @@ export default {
       })
     },
     markers (val) {
-      this.map && this._addMarkers(val)
+      this.map && this._addMarkers(val, true)
     },
     polyline (val) {
       this.map && this._addMapLines(val)
@@ -184,7 +189,7 @@ export default {
     }
   },
   mounted () {
-    let mapStyle = Object.assign({}, this.attrs, this.position)
+    const mapStyle = Object.assign({}, this.attrs, this.position)
     if (this.latitude && this.longitude) {
       mapStyle.center = new plus.maps.Point(this.longitude, this.latitude)
     }
@@ -192,6 +197,7 @@ export default {
     map.__markers__ = {}
     map.__lines__ = []
     map.__circles__ = []
+    map.setZoom(parseInt(this.scale))
     plus.webview.currentWebview().append(map)
     if (this.hidden) {
       map.hide()
@@ -201,17 +207,18 @@ export default {
     }, {
       deep: true
     })
-    map.onclick((data = {}) => {
-      this.$trigger('tap', {}, data)
-    })
-    map.onstatuschanged((data = {}) => {
-      this.$trigger('end', {}, data)
-    })
+    map.onclick = (e) => {
+      this.$trigger('click', {}, e)
+    }
+    map.onstatuschanged = (e) => {
+      this.$trigger('regionchange', {}, e)
+    }
     this._addMarkers(this.markers)
     this._addMapLines(this.polyline)
     this._addMapCircles(this.circles)
   },
   beforeDestroy () {
+    this.map && this.map.close()
     delete this.map
   },
   methods: {
@@ -224,15 +231,19 @@ export default {
       }
       this.map && this[type](data)
     },
-    moveToLocation (data) {
-      this.map.setCenter(new plus.maps.Point(this.longitude, this.latitude))
+    moveToLocation ({ callbackId, longitude, latitude }) {
+      this.map.setCenter(new plus.maps.Point(longitude || this.longitude, latitude || this.latitude))
+      this._publishHandler(callbackId, {
+        errMsg: 'moveToLocation:ok'
+      })
     },
     getCenterLocation ({ callbackId }) {
-      const center = this.map.getCenter()
-      this._publishHandler(callbackId, {
-        longitude: center.longitude,
-        latitude: center.latitude,
-        errMsg: 'getCenterLocation:ok'
+      this.map.getCurrentCenter((state, point) => {
+        this._publishHandler(callbackId, {
+          longitude: point.longitude,
+          latitude: point.latitude,
+          errMsg: 'getCenterLocation:ok'
+        })
       })
     },
     getRegion ({ callbackId }) {
@@ -250,7 +261,7 @@ export default {
       })
     },
     controlclick (e) {
-      this.$trigger('controltap', {}, { id: e.id })
+      this.$trigger('controltap', {}, { controlId: e.id })
     },
     _publishHandler (callbackId, data) {
       UniViewJSBridge.publishHandler('onMapMethodCallback', {
@@ -294,13 +305,13 @@ export default {
         if (id || id === 0) {
           nativeMarker.onclick = (e) => {
             this.$trigger('markertap', {}, {
-              id
+              markerId: id
             })
           }
           if (nativeBubble) {
             nativeBubble.onclick = () => {
               this.$trigger('callouttap', {}, {
-                id
+                markerId: id
               })
             }
           }
@@ -309,10 +320,18 @@ export default {
         nativeMap.__markers__[id + ''] = nativeMarker
       })
     },
+    _clearMarkers () {
+      const map = this.map
+      const data = map.__markers__
+      for (const key in data) {
+        map.removeOverlay(data[key])
+      }
+      map.__markers__ = {}
+    },
     _addMarkers (markers, clear) {
       if (this.map) {
         if (clear) {
-          this.map.clearOverlays()
+          this._clearMarkers()
         }
         markers.forEach(marker => {
           this._addMarker(this.map, marker)
